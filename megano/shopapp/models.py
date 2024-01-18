@@ -123,8 +123,26 @@ class Order(models.Model):
     total_amount = models.DecimalField(max_digits=10, decimal_places=2)
     status = models.CharField(max_length=10, choices=status_choice, default='active')
     payment_type = models.CharField(max_length=20, choices=payment_choice, default='Online')
+    delivery_type = models.CharField(max_length=20,
+                                     choices=[("standard", "standard"), ("express", "express")])
     city = models.CharField(max_length=255)
     address = models.TextField()
+
+    def calculate_total_amount(self):
+        total_amount = self.items.aggregate(total=Sum(F('price') * F('basket__quantity'), output_field=models.DecimalField()))['total']
+        self.total_amount = total_amount
+        return total_amount or Decimal('0.00')
+
+
+class DeliverySettings(models.Model):
+    delivery_type = models.CharField(max_length=20,
+                                     choices=[("standard", "Доставка"), ("express", "Экспресс-доставка")])
+    express_delivery_fee = models.DecimalField(max_digits=10, decimal_places=2, default=500)
+    free_delivery_threshold = models.DecimalField(max_digits=10, decimal_places=2, default=2000)
+    standard_delivery_fee = models.DecimalField(max_digits=10, decimal_places=2, default=200)
+
+    def __str__(self):
+        return str(self.delivery_type)
 
 
 class Basket(models.Model):

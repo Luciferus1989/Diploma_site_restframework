@@ -16,7 +16,6 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path, include
-from frontend.views import HomeView
 
 
 urlpatterns = [
@@ -24,6 +23,5 @@ urlpatterns = [
     path('', include('myauth.urls', namespace='myauth')),
     path("api/", include(("api.urls", 'api'), namespace='api')),
     path("", include(("frontend.urls", 'frontend'), namespace='frontend')),
-    path('', HomeView.as_view(template_name="frontend/index.html")),
 ]
 

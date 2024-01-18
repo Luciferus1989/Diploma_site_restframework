@@ -3,7 +3,7 @@ from django.contrib import admin
 from django.db.models import QuerySet
 from django.http import HttpRequest
 from django.utils.html import format_html
-from .models import Item, Order, ItemImage, Basket, Category, FeedBack, Tag, Specification
+from .models import Item, Order, ItemImage, Basket, Category, FeedBack, Tag, Specification, DeliverySettings
 from .admin_mixins import ExportAsCSVMixin
 from .forms import ItemForm
 
@@ -111,6 +111,20 @@ def remark_archived_order(modeladmin: admin.ModelAdmin, request: HttpRequest, qu
     queryset.update(status='archived')
 
 
+@admin.register(DeliverySettings)
+class DeliverySettingsAdmin(admin.ModelAdmin):
+    list_display = 'delivery_type',
+    readonly_fields = ('delivery_type',)
+    fieldsets = [
+        (None, {
+            'fields': ('delivery_type',),
+        }),
+        ('Description', {
+            'fields': ('express_delivery_fee', 'free_delivery_threshold', 'standard_delivery_fee'),
+        }),
+    ]
+
+
 @admin.register(Order)
 class OrderAdmin(admin.ModelAdmin):
     list_display = 'customer', 'created_at', 'address', 'status'
@@ -122,7 +136,7 @@ class OrderAdmin(admin.ModelAdmin):
         remark_archived_order,
         'export_csv',
     ]
-    readonly_fields = ('created_at', 'customer', 'address', 'city', 'payment_type')
+    readonly_fields = ('created_at', 'customer', 'address', 'city', 'payment_type', 'total_amount')
     fieldsets = [
         (None, {
             'fields': ('customer', 'created_at', 'total_amount'),
@@ -137,6 +151,12 @@ class OrderAdmin(admin.ModelAdmin):
 
     def user_verbose(self, obj: Order) -> str:
         return obj.customer_name.first_name or obj.customer_name.username
+
+    def total_amount_display(self, obj):
+        return obj.total_amount
+
+    total_amount_display.short_description = 'Total Amount'
+    total_amount_display.admin_order_field = 'total_amount'
 
 
 @admin.register(Category)

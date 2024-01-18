@@ -253,7 +253,7 @@ class BasketAPIView(APIView):
             remaining_items = Basket.objects.filter(order=order).exists()
             if not remaining_items:
                 order.delete()
-                serializer = BasketItemSerializer(remaining_items, many=True)
+                serializer = BasketItemSerializer([], many=True)
                 return Response(serializer.data, status=status.HTTP_200_OK)
 
         updated_basket_items = Basket.objects.filter(order=order)
@@ -272,10 +272,11 @@ class OrderAPIView(APIView):
         return Response(serializer.data, status=status.HTTP_200_OK)
 
     def post(self, request, *args, **kwargs):
-        print('')
+        print('Oformlenie')
         customer_identifier = request.user.id
         order = Order.objects.filter(customer=customer_identifier, status='active').first()
         if order:
+            order.total_amount = order.calculate_total_amount()
             order.status = 'pending'
             order.save()
             response_data = {'orderId': order.id}
@@ -289,12 +290,26 @@ class OrderDetailAPIView(RetrieveAPIView):
 
     def get(self, request, *args, **kwargs):
         order = get_object_or_404(self.queryset, id=kwargs[self.lookup_field])
-        print(order)
         serializer = self.serializer_class(order)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
     def post(self, request, *args, **kwargs):
         order = get_object_or_404(self.queryset, id=kwargs[self.lookup_field])
+        data = request.data
+        full_name = data.get('fullName', order.customer.full_name)
+        if full_name != order.customer.get_fullName():
+            order.customer.update_name(full_name)
+        order.payment_type = data.get('paymentType', order.payment_type)
+        order.city = data.get('city', order.city)
+        order.address = data.get('address', order.address)
+        order.delivery_type = data.get('deliveryType', order.delivery_type)
+        delivery_settings = DeliverySettings.objects.first()
+        total_amount = order.total_amount
+        if total_amount < delivery_settings.free_delivery_threshold:
+            total_amount += delivery_settings.standard_delivery_fee
+        if order.delivery_type == 'express':
+            total_amount += delivery_settings.express_delivery_fee
+        order.total_amount = total_amount
         order.status = 'in process'
         order.save()
         serializer = self.serializer_class(order)
@@ -303,6 +318,7 @@ class OrderDetailAPIView(RetrieveAPIView):
 
 class PaymentAPIView(APIView):
     def post(self, request, id):
+
         order_id = id
         payment_data = request.data
         try:

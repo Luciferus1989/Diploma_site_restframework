@@ -25,3 +25,12 @@ class CustomUser(AbstractUser):
     )
     phone = models.CharField(max_length=15, null=True, blank=True)
     avatar = models.ImageField(upload_to=avatar_directory_path, null=True, blank=True)
+
+    def get_fullName(self):
+        return f"{self.first_name} {self.last_name}"
+
+    def update_name(self, full_name):
+        full_name_parts = full_name.split()
+        self.first_name = full_name_parts[0] if full_name_parts else ''
+        self.last_name = ' '.join(full_name_parts[1:]) if len(full_name_parts) > 1 else ''
+
