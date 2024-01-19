@@ -1,6 +1,5 @@
 from django.core.validators import MaxValueValidator
 from django.db import models
-from django.contrib.auth.models import User
 from django.db.models import Avg, Sum, ExpressionWrapper, F, DecimalField
 from myauth.models import CustomUser
 
@@ -81,7 +80,8 @@ class Item(models.Model):
             average_rating = total_rating / total_feedbacks
             return f"{average_rating:.1f} / 5" if average_rating % 1 != 0 else f"{int(average_rating)} / 5"
         else:
-            return "N/A"
+            return 0.0
+
 
     def save_related(self, request, form, formsets, change):
         super().save_related(request, form, formsets, change)

@@ -1,7 +1,10 @@
 import django_filters
+import logging
 from rest_framework import serializers
 from shopapp.models import Item, ItemImage, Category, FeedBack, Tag, Specification, Basket, Order
 from myauth.models import CustomUser
+
+logger = logging.getLogger(__name__)
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -42,6 +45,8 @@ class ItemFilter(django_filters.FilterSet):
 
 
 class ItemImageSerializer(serializers.ModelSerializer):
+    src = serializers.ImageField()
+
     class Meta:
         model = ItemImage
         fields = ('src', 'description')
@@ -55,6 +60,7 @@ class TagSerializer(serializers.ModelSerializer):
 
 class FeedBackSerializer(serializers.ModelSerializer):
     date = serializers.DateTimeField(format='%d-%m-%Y')
+
     class Meta:
         model = FeedBack
         fields = ['item', 'author', 'email', 'text', 'rate', 'date']
@@ -89,9 +95,6 @@ class ItemSerializer(serializers.ModelSerializer):
                   'reviews',
                   'specifications',
                   'rating']
-
-    # def get_reviews(self, obj):
-    #     return obj.get_feedbacks_count()
 
     def get_rating(self, obj):
         return obj.calculate_overall_rating()
@@ -148,25 +151,41 @@ class OrderDetailSerializer(serializers.ModelSerializer):
         return 'free' if not has_paid_delivery else 'paid'
 
     def to_representation(self, instance):
-        representation = super().to_representation(instance)
         formatted_data = {
-            'id': representation['id'],
-            'createdAt': representation['created_at'],
-            'fullName': representation['customer']['fullName'],
-            'email': representation['customer']['email'],
-            'phone': representation['customer']['phone'],
-            'deliveryType': representation['deliveryType'],
-            'paymentType': representation['paymentType'],
-            'totalCost': representation['totalCost'],
-            'status': representation['status'],
-            'city': representation['city'],
-            'address': representation['address'],
-            'products': representation['products'],
+            'id': instance.id,
+            'createdAt': instance.created_at.strftime('%Y-%m-%d %H:%M'),
+            'fullName': instance.customer.full_name,
+            'email': instance.customer.email,
+            'phone': instance.customer.phone,
+            'deliveryType': self.get_deliveryType(instance),
+            'paymentType': instance.payment_type,
+            'totalCost': instance.total_amount,
+            'status': instance.status,
+            'city': instance.city,
+            'address': instance.address,
+            'products': BasketItemSerializer(instance.basket_set.all(), many=True).data,
         }
 
-        return formatted_data
+        return [formatted_data]
 
-
+        # def to_representation(self, instance):
+    #     representation = super().to_representation(instance)
+    #     formatted_data = {
+    #         'id': representation['id'],
+    #         'createdAt': representation['created_at'],
+    #         'fullName': representation['customer']['fullName'],
+    #         'email': representation['customer']['email'],
+    #         'phone': representation['customer']['phone'],
+    #         'deliveryType': representation['deliveryType'],
+    #         'paymentType': representation['paymentType'],
+    #         'totalCost': representation['totalCost'],
+    #         'status': representation['status'],
+    #         'city': representation['city'],
+    #         'address': representation['address'],
+    #         'products': representation['products'],
+    #     }
+    #
+    #     return formatted_data
 
 
 class SubcategorySerializer(serializers.ModelSerializer):

@@ -1,4 +1,8 @@
 from datetime import datetime
+import logging
+from django.db.models import Count
+import json
+from django.http import HttpResponse
 from django.db.models import Avg, OuterRef, Subquery
 from rest_framework.permissions import IsAuthenticated
 from django.shortcuts import get_object_or_404
@@ -24,6 +28,9 @@ from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import status
 from rest_framework.filters import OrderingFilter
 from rest_framework.response import Response
+
+
+logger = logging.getLogger(__name__)
 
 
 class CategoriesAPIView(APIView):
@@ -82,24 +89,17 @@ class CatalogListView(ListAPIView):
             all_categories = [category_instance.id] + subcategory_ids
             queryset = queryset.filter(category__in=all_categories)
         if sort == 'rating':
-            queryset = queryset.order_by('-rating' if sort_type == 'dec' else 'rating')
+            queryset = queryset.order_by('-get_average_rating()' if sort_type == 'dec' else 'get_average_rating()')
         elif sort == 'price':
             queryset = queryset.order_by('-price' if sort_type == 'dec' else 'price')
-        elif sort == 'reviews':
-            queryset = queryset.order_by('-review' if sort_type == 'dec' else 'review')
+        if sort == 'reviews':
+            queryset = queryset.order_by('-get_feedbacks_count()' if sort_type == 'dec' else 'get_feedbacks_count()')
         elif sort == 'date':
             queryset = queryset.order_by('-date' if sort_type == 'dec' else 'date')
-
-        # page = self.paginate_queryset(queryset)
-        # if page is not None:
-        #     serialized_items = self.get_serializer(page, many=True).data
-        #     return self.get_paginated_response(serialized_items)
 
         serialized_items = self.get_serializer(queryset, many=True).data
         data = {
             'items': serialized_items,
-            # 'currentPage': 1,
-            # 'lastPage': 3,
         }
         # queryset = self.filter_queryset(queryset)
         # print(queryset.query)
