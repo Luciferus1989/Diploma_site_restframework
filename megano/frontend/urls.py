@@ -3,6 +3,8 @@ from django.views.generic import TemplateView
 from django.conf import settings
 from django.conf.urls.static import static
 
+# from .views import TemplateView
+
 app_name = 'frontend'
 
 urlpatterns = [
@@ -23,10 +25,10 @@ urlpatterns = [
     path('sign-in/', TemplateView.as_view(template_name="frontend/signIn.html")),
     path('sign-up/', TemplateView.as_view(template_name="frontend/signUp.html")),
 ]
-#
+
 # urlpatterns = [
 #     path('about/', TemplateView.as_view(template_name="frontend/about.html")),
-#     path('', HomeView.as_view(template_name="frontend/index.html"), name='index'),
+#     path('', TemplateView.as_view(template_name="frontend/index.html")),
 #     path('cart/', TemplateView.as_view(template_name="frontend/cart.html")),
 #     path('catalog/', TemplateView.as_view(template_name="frontend/catalog.html")),
 #     path('catalog/<int:id>/', TemplateView.as_view(template_name="frontend/catalog.html")),
@@ -41,7 +43,7 @@ urlpatterns = [
 #     path('sale/', TemplateView.as_view(template_name="frontend/sale.html")),
 #     path('sign-up/', TemplateView.as_view(template_name="frontend/signUp.html")),
 # ]
-#
+
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
 

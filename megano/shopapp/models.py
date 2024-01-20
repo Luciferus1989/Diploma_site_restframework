@@ -32,7 +32,7 @@ class Tag(models.Model):
 class Category(models.Model):
     title = models.CharField(max_length=50)
     parent_category = models.ForeignKey('self', on_delete=models.CASCADE, null=True, blank=True, related_name='subcategories')
-    image = models.ImageField(upload_to=category_preview_directory_path, null=True, blank=True)
+    image = models.ImageField(upload_to=category_preview_directory_path, blank=False)
 
     def __str__(self):
         return self.title
@@ -82,7 +82,6 @@ class Item(models.Model):
         else:
             return 0.0
 
-
     def save_related(self, request, form, formsets, change):
         super().save_related(request, form, formsets, change)
         item = form.instance
@@ -116,15 +115,14 @@ class Order(models.Model):
         ('in process', 'in process'),
         ('archived', 'Archived'),
     ]
-    payment_choice = [('Online', 'online'), ('Credit', 'credit'), ('Cash', 'cash')]
     customer = models.ForeignKey(CustomUser, on_delete=models.PROTECT)
     created_at = models.DateTimeField(auto_now_add=True)
     items = models.ManyToManyField(Item, through='Basket')
     total_amount = models.DecimalField(max_digits=10, decimal_places=2)
     status = models.CharField(max_length=10, choices=status_choice, default='active')
-    payment_type = models.CharField(max_length=20, choices=payment_choice, default='Online')
+    payment_type = models.CharField(max_length=20)
     delivery_type = models.CharField(max_length=20,
-                                     choices=[("standard", "standard"), ("express", "express")])
+                                     choices=[("ordinary", "ordinary"), ("express", "express")], default='standard')
     city = models.CharField(max_length=255)
     address = models.TextField()
 
@@ -136,7 +134,7 @@ class Order(models.Model):
 
 class DeliverySettings(models.Model):
     delivery_type = models.CharField(max_length=20,
-                                     choices=[("standard", "Доставка"), ("express", "Экспресс-доставка")])
+                                     choices=[("ordinary", "Обычная"), ("express", "Экспресс-доставка")])
     express_delivery_fee = models.DecimalField(max_digits=10, decimal_places=2, default=500)
     free_delivery_threshold = models.DecimalField(max_digits=10, decimal_places=2, default=2000)
     standard_delivery_fee = models.DecimalField(max_digits=10, decimal_places=2, default=200)

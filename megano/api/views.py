@@ -1,9 +1,6 @@
 from datetime import datetime
 import logging
-from django.db.models import Count
-import json
-from django.http import HttpResponse
-from django.db.models import Avg, OuterRef, Subquery
+from django.db.models import Avg, OuterRef, Subquery, Count
 from rest_framework.permissions import IsAuthenticated
 from django.shortcuts import get_object_or_404
 from rest_framework.exceptions import ValidationError
@@ -12,7 +9,7 @@ from rest_framework.generics import (ListAPIView,
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.request import Request
 from rest_framework.views import APIView
-from shopapp.models import Item, Category, FeedBack, Tag, Basket, Order
+from shopapp.models import Item, Category, FeedBack, Tag, Basket, Order, DeliverySettings
 from myauth.models import CustomUser
 from .serializers import (CategorySerializer,
                           ItemSerializer,
@@ -28,7 +25,6 @@ from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import status
 from rest_framework.filters import OrderingFilter
 from rest_framework.response import Response
-
 
 logger = logging.getLogger(__name__)
 
@@ -89,11 +85,13 @@ class CatalogListView(ListAPIView):
             all_categories = [category_instance.id] + subcategory_ids
             queryset = queryset.filter(category__in=all_categories)
         if sort == 'rating':
-            queryset = queryset.order_by('-get_average_rating()' if sort_type == 'dec' else 'get_average_rating()')
+            queryset = queryset.annotate(avg_rating=Avg('feedbacks__rate'))
+            queryset = queryset.order_by('-avg_rating' if sort_type == 'dec' else 'avg_rating')
         elif sort == 'price':
             queryset = queryset.order_by('-price' if sort_type == 'dec' else 'price')
-        if sort == 'reviews':
-            queryset = queryset.order_by('-get_feedbacks_count()' if sort_type == 'dec' else 'get_feedbacks_count()')
+        elif sort == 'reviews':
+            queryset = queryset.annotate(feedbacks_count=Count('feedbacks'))
+            queryset = queryset.order_by('-feedbacks_count' if sort_type == 'dec' else 'feedbacks_count')
         elif sort == 'date':
             queryset = queryset.order_by('-date' if sort_type == 'dec' else 'date')
 
@@ -101,8 +99,8 @@ class CatalogListView(ListAPIView):
         data = {
             'items': serialized_items,
         }
-        # queryset = self.filter_queryset(queryset)
-        # print(queryset.query)
+
+        print(data)
 
         return Response(data, status=status.HTTP_200_OK)
 
@@ -276,6 +274,7 @@ class OrderAPIView(APIView):
         customer_identifier = request.user.id
         order = Order.objects.filter(customer=customer_identifier, status='active').first()
         if order:
+            print('from basket', order.delivery_type)
             order.total_amount = order.calculate_total_amount()
             order.status = 'pending'
             order.save()
@@ -296,27 +295,31 @@ class OrderDetailAPIView(RetrieveAPIView):
     def post(self, request, *args, **kwargs):
         order = get_object_or_404(self.queryset, id=kwargs[self.lookup_field])
         data = request.data
-        full_name = data.get('fullName', order.customer.full_name)
-        if full_name != order.customer.get_fullName():
-            order.customer.update_name(full_name)
+        order.customer.update_name(data.get('fullName', order.customer.get_fullName()))
         order.payment_type = data.get('paymentType', order.payment_type)
         order.city = data.get('city', order.city)
         order.address = data.get('address', order.address)
         order.delivery_type = data.get('deliveryType', order.delivery_type)
-        delivery_settings = DeliverySettings.objects.first()
+        delivery_settings = DeliverySettings.objects.filter(delivery_type=order.delivery_type).first()
         total_amount = order.total_amount
-        if total_amount < delivery_settings.free_delivery_threshold:
+        if delivery_settings and total_amount < delivery_settings.free_delivery_threshold:
             total_amount += delivery_settings.standard_delivery_fee
         if order.delivery_type == 'express':
             total_amount += delivery_settings.express_delivery_fee
         order.total_amount = total_amount
         order.status = 'in process'
         order.save()
-        serializer = self.serializer_class(order)
-        return Response(serializer.data, status=status.HTTP_200_OK)
+        # serializer = self.serializer_class(order)
+        print(order.id)
+        return Response({'order_id': order.id})
+        # return Response(serializer.data, status=status.HTTP_200_OK)
 
 
 class PaymentAPIView(APIView):
+    def get(self, request, id):
+        order = Order.objects.get(pk=id)
+        return JsonResponse({'order_id': order.id})
+
     def post(self, request, id):
 
         order_id = id

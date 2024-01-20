@@ -37,7 +37,7 @@ class ItemFilter(django_filters.FilterSet):
 
     class Meta:
         model = Item
-        fields = []
+        fields = ['name', 'price', 'freeDelivery', 'available', 'category']
 
     # def __init__(self, *args, **kwargs):
     #     super().__init__(*args, **kwargs)
@@ -99,6 +99,9 @@ class ItemSerializer(serializers.ModelSerializer):
     def get_rating(self, obj):
         return obj.calculate_overall_rating()
 
+    def get_reviews(self, obj):
+        return obj.get_feedbacks_count()
+
 
 class BasketItemSerializer(serializers.ModelSerializer):
     item = ItemSerializer()
@@ -154,7 +157,7 @@ class OrderDetailSerializer(serializers.ModelSerializer):
         formatted_data = {
             'id': instance.id,
             'createdAt': instance.created_at.strftime('%Y-%m-%d %H:%M'),
-            'fullName': instance.customer.full_name,
+            'fullName': instance.customer.get_fullName(),
             'email': instance.customer.email,
             'phone': instance.customer.phone,
             'deliveryType': self.get_deliveryType(instance),
@@ -166,7 +169,7 @@ class OrderDetailSerializer(serializers.ModelSerializer):
             'products': BasketItemSerializer(instance.basket_set.all(), many=True).data,
         }
 
-        return [formatted_data]
+        return formatted_data
 
         # def to_representation(self, instance):
     #     representation = super().to_representation(instance)
