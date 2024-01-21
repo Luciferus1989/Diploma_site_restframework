@@ -1,5 +1,8 @@
+from django.contrib.auth import authenticate, login, logout
 from datetime import datetime
+import traceback
 import logging
+import json
 from django.db.models import Avg, OuterRef, Subquery, Count
 from rest_framework.permissions import IsAuthenticated
 from django.shortcuts import get_object_or_404
@@ -11,6 +14,7 @@ from rest_framework.request import Request
 from rest_framework.views import APIView
 from shopapp.models import Item, Category, FeedBack, Tag, Basket, Order, DeliverySettings
 from myauth.models import CustomUser
+from django.contrib.auth.models import Group
 from .serializers import (CategorySerializer,
                           ItemSerializer,
                           ItemFilter,
@@ -213,7 +217,10 @@ class BasketAPIView(APIView):
         if request.user.is_authenticated:
             customer_identifier = request.user.id
         else:
-            customer_identifier = request.META.get('REMOTE_ADDR', None)
+            customer_identifier = None
+            # customer_identifier = request.META.get('REMOTE_ADDR', None)
+
+        print(customer_identifier)
         order = Order.objects.filter(customer=customer_identifier, status='active').first()
         basket_items = Basket.objects.filter(order=order)
         serializer = self.serializer_class(basket_items, many=True)
@@ -328,3 +335,39 @@ class PaymentAPIView(APIView):
             return Response(status=status.HTTP_200_OK)
         except Exception as e:
             return Response(status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+class LoginApiView(APIView):
+    def post(self, request, *args, **kwargs):
+        data = json.loads(list(request.data.keys())[0])
+        user = authenticate(request, username=data.get('username'), password=data.get('password'))
+
+        if user is not None:
+            login(request, user)
+            return Response({'status': 'success'}, status=200)
+        else:
+            return Response({'status': 'failure'}, status=500)
+
+
+class LogoutApiView(APIView):
+    def post(self, request, *args, **kwargs):
+        try:
+            logout(request)
+            return Response({'status': 'success', 'message': 'User logged out successfully'}, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response({'status': 'failure', 'error': 'Internal Server Error', 'details': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+class RegisterApiView(APIView):
+    def post(self, request, *args, **kwargs):
+        try:
+            data = json.loads(list(request.data.keys())[0])
+            first_name = data.get('name')
+            username = data.get('username')
+            password = data.get('password')
+            user = CustomUser.objects.create_user(username=username, password=password, first_name=first_name)
+            group, created = Group.objects.get_or_create(name='Users')
+            user.groups.add(group)
+            return Response({'status': 'success', 'message': 'User registered successfully'}, status=status.HTTP_201_CREATED)
+        except Exception as e:
+            return Response({'status': 'failure', 'error': 'Internal Server Error', 'details': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

@@ -9,10 +9,12 @@ from django.views import View
 from django.views.generic import CreateView
 from django.contrib import messages
 from django.contrib.auth import authenticate, login, logout
+from rest_framework.decorators import api_view
 
 from .models import CustomUser
 
 
+@api_view(['POST'])
 def login_view(request):
     if request.method == 'POST':
         user = authenticate(request, username=request.POST['login'], password=request.POST['password'])
@@ -26,11 +28,13 @@ def login_view(request):
     return render(request, 'frontend/signIn.html')
 
 
+@api_view(['POST'])
 def logout_view(request):
     logout(request)
     return redirect('frontend:index')
 
 
+@api_view(['POST'])
 class RegisterView(View):
     template_name = 'frontend/signUp.html'
 

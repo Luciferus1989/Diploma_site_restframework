@@ -13,7 +13,9 @@ from .views import (CategoriesAPIView,
                     TagView,
                     BasketAPIView,
                     OrderAPIView,
-                    OrderDetailAPIView, PaymentAPIView,
+                    OrderDetailAPIView,
+                    PaymentAPIView,
+                    LoginApiView, LogoutApiView, RegisterApiView,
                     )
 from django.conf import settings
 from django.conf.urls.static import static
@@ -44,7 +46,9 @@ urlpatterns = [
     path('profile/avatar', ProfileAPIView.as_view(), name='api-password'),
     # path('progress-payment/', TemplateView.as_view(template_name="frontend/progressPayment.html")),
     # path('sale/', TemplateView.as_view(template_name="frontend/sale.html")),
-    # path('sign-up/', TemplateView.as_view(template_name="frontend/signUp.html")),
+    path('sign-in', LoginApiView.as_view(), name='api-login'),
+    path('sign-out', LogoutApiView.as_view(), name='api-logout'),
+    path('sign-up', RegisterApiView.as_view(), name='api-register'),
 ]
 
 if settings.DEBUG:
