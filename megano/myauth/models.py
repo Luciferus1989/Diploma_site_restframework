@@ -25,6 +25,7 @@ class CustomUser(AbstractUser):
     )
     phone = models.CharField(max_length=15, null=True, blank=True)
     avatar = models.ImageField(upload_to=avatar_directory_path, null=True, blank=True)
+    session_key = models.CharField(max_length=40, blank=True, null=True)
 
     def get_fullName(self):
         return f"{self.first_name} {self.last_name}"

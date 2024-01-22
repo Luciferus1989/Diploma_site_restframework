@@ -1,8 +1,10 @@
 from django.contrib.auth import authenticate, login, logout
 from datetime import datetime
-import traceback
+
 import logging
 import json
+from django.shortcuts import redirect
+from django.urls import reverse
 from django.db.models import Avg, OuterRef, Subquery, Count
 from rest_framework.permissions import IsAuthenticated
 from django.shortcuts import get_object_or_404
@@ -15,6 +17,7 @@ from rest_framework.views import APIView
 from shopapp.models import Item, Category, FeedBack, Tag, Basket, Order, DeliverySettings
 from myauth.models import CustomUser
 from django.contrib.auth.models import Group
+from django.contrib.sessions.models import Session
 from .serializers import (CategorySerializer,
                           ItemSerializer,
                           ItemFilter,
@@ -103,8 +106,6 @@ class CatalogListView(ListAPIView):
         data = {
             'items': serialized_items,
         }
-
-        print(data)
 
         return Response(data, status=status.HTTP_200_OK)
 
@@ -217,10 +218,14 @@ class BasketAPIView(APIView):
         if request.user.is_authenticated:
             customer_identifier = request.user.id
         else:
-            customer_identifier = None
+            session_key = request.session.session_key
+            custom_user = CustomUser.objects.filter(session_key=session_key).first()
+            customer_identifier = custom_user.id
+        # if request.user.is_authenticated:
+        #     customer_identifier = request.user.id
+        # else:
+        #     customer_identifier = None
             # customer_identifier = request.META.get('REMOTE_ADDR', None)
-
-        print(customer_identifier)
         order = Order.objects.filter(customer=customer_identifier, status='active').first()
         basket_items = Basket.objects.filter(order=order)
         serializer = self.serializer_class(basket_items, many=True)
@@ -230,25 +235,36 @@ class BasketAPIView(APIView):
         item = Item.objects.get(pk=request.data.get('id', 0))
         count = int(request.data.get('count', 0))
         if request.user.is_authenticated:
-            customer_identifier = request.user.id
+            customer_identifier = request.user
         else:
-            customer_identifier = request.META.get('REMOTE_ADDR', None)
+            session_key = request.session.session_key
+            if not session_key:
+                request.session.save()
+                session_key = request.session.session_key
+            customer_identifier, created = CustomUser.objects.get_or_create(session_key=session_key)
 
-        order, created = Order.objects.get_or_create(customer=CustomUser.objects.get(id=customer_identifier),
-                                                     status='active', total_amount=0)
+        order, created = Order.objects.get_or_create(customer=customer_identifier, status='active', total_amount=0)
         basket_item, created = Basket.objects.get_or_create(order=order, item=item)
         basket_item.quantity += count
         basket_item.save()
 
-        serializer = self.serializer_class(basket_item)
+        serializer = self.serializer_class(basket_item, many=False)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
     def delete(self, request, *args, **kwargs):
         data = request.data
         item_id = data['id']
         count = data['count']
-        user = request.user
-        order = Order.objects.filter(customer=user, status='active').first()
+        if request.user.is_authenticated:
+            customer_identifier = request.user
+        else:
+            session_key = request.session.session_key
+            if not session_key:
+                request.session.save()
+                session_key = request.session.session_key
+            customer_identifier, created = CustomUser.objects.get_or_create(session_key=session_key)
+
+        order = Order.objects.filter(customer=customer_identifier, status='active').first()
         basket_item = Basket.objects.filter(order=order, item_id=item_id).first()
         if count < basket_item.quantity:
             basket_item.quantity -= count
@@ -268,8 +284,6 @@ class BasketAPIView(APIView):
 
 
 class OrderAPIView(APIView):
-    permission_classes = [IsAuthenticated]
-
     def get(self, request, *args, **kwargs):
         customer_identifier = request.user.id
         orders = Order.objects.filter(customer=customer_identifier)
@@ -277,7 +291,6 @@ class OrderAPIView(APIView):
         return Response(serializer.data, status=status.HTTP_200_OK)
 
     def post(self, request, *args, **kwargs):
-        print('Oformlenie')
         customer_identifier = request.user.id
         order = Order.objects.filter(customer=customer_identifier, status='active').first()
         if order:
@@ -316,10 +329,9 @@ class OrderDetailAPIView(RetrieveAPIView):
         order.total_amount = total_amount
         order.status = 'in process'
         order.save()
-        # serializer = self.serializer_class(order)
         print(order.id)
         return Response({'order_id': order.id})
-        # return Response(serializer.data, status=status.HTTP_200_OK)
+
 
 
 class PaymentAPIView(APIView):
