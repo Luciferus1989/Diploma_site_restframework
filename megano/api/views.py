@@ -291,6 +291,8 @@ class OrderAPIView(APIView):
         return Response(serializer.data, status=status.HTTP_200_OK)
 
     def post(self, request, *args, **kwargs):
+        if not request.user.is_authenticated:
+            return redirect('/sign-in/')
         customer_identifier = request.user.id
         order = Order.objects.filter(customer=customer_identifier, status='active').first()
         if order:
