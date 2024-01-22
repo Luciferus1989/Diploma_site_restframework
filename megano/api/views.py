@@ -333,7 +333,6 @@ class OrderDetailAPIView(RetrieveAPIView):
         return Response({'order_id': order.id})
 
 
-
 class PaymentAPIView(APIView):
     def get(self, request, id):
         order = Order.objects.get(pk=id)
