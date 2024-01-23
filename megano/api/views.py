@@ -8,6 +8,7 @@ from django.urls import reverse
 from django.db.models import Avg, OuterRef, Subquery, Count
 from rest_framework.permissions import IsAuthenticated
 from django.shortcuts import get_object_or_404
+from django.contrib.auth.mixins import LoginRequiredMixin
 from rest_framework.exceptions import ValidationError
 from rest_framework.generics import (ListAPIView,
                                      RetrieveAPIView,)
@@ -283,7 +284,9 @@ class BasketAPIView(APIView):
         return Response(serializer.data, status=status.HTTP_200_OK)
 
 
-class OrderAPIView(APIView):
+class OrderAPIView(LoginRequiredMixin, APIView):
+    login_url = '/sign-in/'
+
     def get(self, request, *args, **kwargs):
         customer_identifier = request.user.id
         orders = Order.objects.filter(customer=customer_identifier)
@@ -291,12 +294,10 @@ class OrderAPIView(APIView):
         return Response(serializer.data, status=status.HTTP_200_OK)
 
     def post(self, request, *args, **kwargs):
-        if not request.user.is_authenticated:
-            return redirect('/sign-in/')
+        print('Oformite zakaz')
         customer_identifier = request.user.id
         order = Order.objects.filter(customer=customer_identifier, status='active').first()
         if order:
-            print('from basket', order.delivery_type)
             order.total_amount = order.calculate_total_amount()
             order.status = 'pending'
             order.save()
@@ -310,6 +311,7 @@ class OrderDetailAPIView(RetrieveAPIView):
     lookup_field = 'id'
 
     def get(self, request, *args, **kwargs):
+        print('from OrderDetail get')
         order = get_object_or_404(self.queryset, id=kwargs[self.lookup_field])
         serializer = self.serializer_class(order)
         return Response(serializer.data, status=status.HTTP_200_OK)
@@ -351,6 +353,10 @@ class PaymentAPIView(APIView):
 
 
 class LoginApiView(APIView):
+    def get(self, request, *args, **kwargs):
+        print('V request legit eto:', request)
+        return redirect('/sign-in/')
+
     def post(self, request, *args, **kwargs):
         data = json.loads(list(request.data.keys())[0])
         user = authenticate(request, username=data.get('username'), password=data.get('password'))
