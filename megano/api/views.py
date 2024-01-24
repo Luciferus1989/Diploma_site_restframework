@@ -11,7 +11,7 @@ from rest_framework.generics import (ListAPIView,
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.request import Request
 from rest_framework.views import APIView
-from shopapp.models import Item, Category, FeedBack, Tag, Basket, Order, DeliverySettings
+from shopapp.models import Item, Category, FeedBack, Tag, Basket, Order, DeliverySettings, Sale, SaleItem
 from myauth.models import CustomUser
 from django.contrib.auth.models import Group
 from .serializers import (CategorySerializer,
@@ -386,22 +386,13 @@ class CustomPageNumberPagination(PageNumberPagination):
     page_size = 6
 
 
-class SalesAPIView(APIView):
+class SalesAPIView(ListAPIView):
     serializer_class = SalesItemSerializer
     pagination_class = CustomPageNumberPagination
 
-    def get(self, request):
-        orders = Order.objects.order_by('-created_at')
-        unique_items = set()
-
-        for order in orders:
-            for basket_item in order.basket_set.all():
-                item = basket_item.item
-                unique_items.add(item)
-
-        unique_items = set(unique_items)
-
-        serialized_items = [self.serializer_class(item).data for item in unique_items]
+    def list(self, request, *args, **kwargs):
+        sales_items = SaleItem.objects.all()
+        serialized_items = self.get_serializer(sales_items, many=True).data
 
         data = {
             'items': serialized_items,

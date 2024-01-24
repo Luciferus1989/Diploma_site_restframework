@@ -1,6 +1,7 @@
 from django.core.validators import MaxValueValidator
 from django.db import models
 from django.db.models import Avg, Sum, F
+from django.utils import timezone
 from myauth.models import CustomUser
 
 
@@ -132,6 +133,23 @@ class Order(models.Model):
         total_amount = self.items.aggregate(total=Sum(F('price') - F('discount') * F('basket__quantity'), output_field=models.DecimalField()))['total']
         self.total_amount = total_amount
         return total_amount or Decimal('0.00')
+
+
+class Sale(models.Model):
+    title = models.CharField(max_length=255)
+    discount = models.SmallIntegerField(default=0)
+    items = models.ManyToManyField(Item, through='SaleItem')
+    date_from = models.DateField()
+    date_to = models.DateField()
+    archived = models.BooleanField(default=False)
+
+    def __str__(self):
+        return self.title
+
+
+class SaleItem(models.Model):
+    sale = models.ForeignKey(Sale, on_delete=models.CASCADE)
+    item = models.ForeignKey(Item, on_delete=models.CASCADE)
 
 
 class DeliverySettings(models.Model):

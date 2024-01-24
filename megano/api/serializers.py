@@ -1,8 +1,9 @@
 import django_filters
 import logging
 from rest_framework import serializers
-from shopapp.models import Item, ItemImage, Category, FeedBack, Tag, Specification, Basket, Order
+from shopapp.models import Item, ItemImage, Category, FeedBack, Tag, Specification, Basket, Order, Sale, SaleItem
 from myauth.models import CustomUser
+from decimal import Decimal
 
 logger = logging.getLogger(__name__)
 
@@ -109,7 +110,7 @@ class BasketItemSerializer(serializers.ModelSerializer):
 
     def to_representation(self, instance):
         item_representation = ItemSerializer(instance.item).data
-        sale_price = instance.item.price - instance.item.discount
+        sale_price = instance.item.price * (1 - Decimal(instance.item.discount) / 100)
         return {
             'id': item_representation['id'],
             'category': item_representation['category'],
@@ -169,22 +170,24 @@ class OrderDetailSerializer(serializers.ModelSerializer):
         return formatted_data
 
 
-class SalesItemSerializer(serializers.Serializer):
-    item = ItemSerializer()
+class SalesItemSerializer(serializers.ModelSerializer):
+    items = ItemSerializer()
+
+    class Meta:
+        model = SaleItem
+        fields = ['items']
 
     def to_representation(self, instance):
-        item_representation = self.fields['item'].to_representation(instance)
-        last_sold_order = Order.objects.filter(items__id=item_representation['id']).order_by('-created_at').first()
-        basket_item = Basket.objects.filter(item_id=item_representation['id']).order_by('-order__created_at').first()
-        return {
+        item_representation = self.fields['items'].to_representation(instance.item)
+        sale_price = instance.item.price * (1 - Decimal(instance.sale.discount) / 100)
+        sale_representation = {
             'id': item_representation['id'],
-            'price': item_representation['price'],
-            'salePrice': basket_item.sale_price,
-            'dateFrom': item_representation['date'],
-            'dateTo': last_sold_order.created_at.strftime('%m-%d'),
-            'title': item_representation['title'],
-            'images': item_representation['images'],
+            'dateFrom': instance.sale.date_from.strftime('%d-%m'),
+            'dateTo': instance.sale.date_to.strftime('%d-%m'),
+            'salePrice': sale_price,
         }
+
+        return {**item_representation, **sale_representation}
 
 
 class SubcategorySerializer(serializers.ModelSerializer):

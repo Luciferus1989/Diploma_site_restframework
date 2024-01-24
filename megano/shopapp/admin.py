@@ -2,7 +2,8 @@ from django.contrib import admin
 from django.db.models import QuerySet
 from django.http import HttpRequest
 from django.utils.html import format_html
-from .models import Item, Order, ItemImage, Basket, Category, FeedBack, Tag, Specification, DeliverySettings
+from .models import Item, Order, ItemImage, Basket, Category, FeedBack, Tag, Specification, DeliverySettings, Sale, \
+    SaleItem
 from .admin_mixins import ExportAsCSVMixin
 from .forms import ItemForm
 
@@ -122,6 +123,22 @@ class DeliverySettingsAdmin(admin.ModelAdmin):
             'fields': ('express_delivery_fee', 'free_delivery_threshold', 'standard_delivery_fee'),
         }),
     ]
+
+
+class SaleItemInLine(admin.StackedInline):
+    model = SaleItem
+    extra = 1
+
+
+@admin.register(Sale)
+class SaleAdmin(admin.ModelAdmin):
+    list_display = ('title', 'discount', 'date_from', 'date_to', 'archived',)
+    fieldsets = [
+        (None, {
+            'fields': ('title', 'discount', 'date_from', 'date_to', 'archived'),
+        }),
+    ]
+    inlines = [SaleItemInLine]
 
 
 @admin.register(Order)
