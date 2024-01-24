@@ -237,6 +237,8 @@ class BasketAPIView(APIView):
 
         order, created = Order.objects.get_or_create(customer=customer_identifier, status='active', total_amount=0)
         basket_item, created = Basket.objects.get_or_create(order=order, item=item)
+        sale_price = item.price - item.discount
+        basket_item.sale_price = sale_price
         basket_item.quantity += count
         basket_item.save()
 

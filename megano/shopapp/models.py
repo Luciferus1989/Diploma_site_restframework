@@ -129,7 +129,7 @@ class Order(models.Model):
     address = models.TextField()
 
     def calculate_total_amount(self):
-        total_amount = self.items.aggregate(total=Sum(F('price') * F('basket__quantity'), output_field=models.DecimalField()))['total']
+        total_amount = self.items.aggregate(total=Sum(F('price') - F('discount') * F('basket__quantity'), output_field=models.DecimalField()))['total']
         self.total_amount = total_amount
         return total_amount or Decimal('0.00')
 
@@ -149,6 +149,8 @@ class Basket(models.Model):
     order = models.ForeignKey(Order, on_delete=models.CASCADE)
     item = models.ForeignKey(Item, on_delete=models.CASCADE)
     quantity = models.PositiveIntegerField(default=0)
+    sale_price = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+
 
 
 class FeedBack(models.Model):

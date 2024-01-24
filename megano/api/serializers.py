@@ -109,10 +109,11 @@ class BasketItemSerializer(serializers.ModelSerializer):
 
     def to_representation(self, instance):
         item_representation = ItemSerializer(instance.item).data
+        sale_price = instance.item.price - instance.item.discount
         return {
             'id': item_representation['id'],
             'category': item_representation['category'],
-            'price': item_representation['price'],
+            'price': sale_price,
             'count': instance.quantity,
             'date': item_representation['date'],
             'title': item_representation['title'],
@@ -174,9 +175,11 @@ class SalesItemSerializer(serializers.Serializer):
     def to_representation(self, instance):
         item_representation = self.fields['item'].to_representation(instance)
         last_sold_order = Order.objects.filter(items__id=item_representation['id']).order_by('-created_at').first()
+        basket_item = Basket.objects.filter(item_id=item_representation['id']).order_by('-order__created_at').first()
         return {
             'id': item_representation['id'],
             'price': item_representation['price'],
+            'salePrice': basket_item.sale_price,
             'dateFrom': item_representation['date'],
             'dateTo': last_sold_order.created_at.strftime('%m-%d'),
             'title': item_representation['title'],
