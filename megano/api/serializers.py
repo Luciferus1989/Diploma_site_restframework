@@ -39,10 +39,6 @@ class ItemFilter(django_filters.FilterSet):
         model = Item
         fields = ['name', 'price', 'freeDelivery', 'available', 'category']
 
-    # def __init__(self, *args, **kwargs):
-    #     super().__init__(*args, **kwargs)
-    #     print(self.form.data)
-
 
 class ItemImageSerializer(serializers.ModelSerializer):
     src = serializers.ImageField()
@@ -171,24 +167,21 @@ class OrderDetailSerializer(serializers.ModelSerializer):
 
         return formatted_data
 
-        # def to_representation(self, instance):
-    #     representation = super().to_representation(instance)
-    #     formatted_data = {
-    #         'id': representation['id'],
-    #         'createdAt': representation['created_at'],
-    #         'fullName': representation['customer']['fullName'],
-    #         'email': representation['customer']['email'],
-    #         'phone': representation['customer']['phone'],
-    #         'deliveryType': representation['deliveryType'],
-    #         'paymentType': representation['paymentType'],
-    #         'totalCost': representation['totalCost'],
-    #         'status': representation['status'],
-    #         'city': representation['city'],
-    #         'address': representation['address'],
-    #         'products': representation['products'],
-    #     }
-    #
-    #     return formatted_data
+
+class SalesItemSerializer(serializers.Serializer):
+    item = ItemSerializer()
+
+    def to_representation(self, instance):
+        item_representation = self.fields['item'].to_representation(instance)
+        last_sold_order = Order.objects.filter(items__id=item_representation['id']).order_by('-created_at').first()
+        return {
+            'id': item_representation['id'],
+            'price': item_representation['price'],
+            'dateFrom': item_representation['date'],
+            'dateTo': last_sold_order.created_at.strftime('%m-%d'),
+            'title': item_representation['title'],
+            'images': item_representation['images'],
+        }
 
 
 class SubcategorySerializer(serializers.ModelSerializer):

@@ -3,12 +3,8 @@ from datetime import datetime
 
 import logging
 import json
-from django.shortcuts import redirect
-from django.urls import reverse
 from django.db.models import Avg, OuterRef, Subquery, Count
-from rest_framework.permissions import IsAuthenticated
 from django.shortcuts import get_object_or_404
-from django.contrib.auth.mixins import LoginRequiredMixin
 from rest_framework.exceptions import ValidationError
 from rest_framework.generics import (ListAPIView,
                                      RetrieveAPIView,)
@@ -18,7 +14,6 @@ from rest_framework.views import APIView
 from shopapp.models import Item, Category, FeedBack, Tag, Basket, Order, DeliverySettings
 from myauth.models import CustomUser
 from django.contrib.auth.models import Group
-from django.contrib.sessions.models import Session
 from .serializers import (CategorySerializer,
                           ItemSerializer,
                           ItemFilter,
@@ -28,7 +23,8 @@ from .serializers import (CategorySerializer,
                           AvatarSerializer,
                           TagSerializer,
                           BasketItemSerializer,
-                          OrderDetailSerializer)
+                          OrderDetailSerializer,
+                          SalesItemSerializer)
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import status
 from rest_framework.filters import OrderingFilter
@@ -222,11 +218,6 @@ class BasketAPIView(APIView):
             session_key = request.session.session_key
             custom_user = CustomUser.objects.filter(session_key=session_key).first()
             customer_identifier = custom_user.id
-        # if request.user.is_authenticated:
-        #     customer_identifier = request.user.id
-        # else:
-        #     customer_identifier = None
-            # customer_identifier = request.META.get('REMOTE_ADDR', None)
         order = Order.objects.filter(customer=customer_identifier, status='active').first()
         basket_items = Basket.objects.filter(order=order)
         serializer = self.serializer_class(basket_items, many=True)
@@ -284,8 +275,7 @@ class BasketAPIView(APIView):
         return Response(serializer.data, status=status.HTTP_200_OK)
 
 
-class OrderAPIView(LoginRequiredMixin, APIView):
-    login_url = '/sign-in/'
+class OrderAPIView(APIView):
 
     def get(self, request, *args, **kwargs):
         customer_identifier = request.user.id
@@ -294,7 +284,6 @@ class OrderAPIView(LoginRequiredMixin, APIView):
         return Response(serializer.data, status=status.HTTP_200_OK)
 
     def post(self, request, *args, **kwargs):
-        print('Oformite zakaz')
         customer_identifier = request.user.id
         order = Order.objects.filter(customer=customer_identifier, status='active').first()
         if order:
@@ -311,7 +300,6 @@ class OrderDetailAPIView(RetrieveAPIView):
     lookup_field = 'id'
 
     def get(self, request, *args, **kwargs):
-        print('from OrderDetail get')
         order = get_object_or_404(self.queryset, id=kwargs[self.lookup_field])
         serializer = self.serializer_class(order)
         return Response(serializer.data, status=status.HTTP_200_OK)
@@ -331,21 +319,25 @@ class OrderDetailAPIView(RetrieveAPIView):
         if order.delivery_type == 'express':
             total_amount += delivery_settings.express_delivery_fee
         order.total_amount = total_amount
-        order.status = 'in process'
+        order.status = 'payment'
         order.save()
-        print(order.id)
-        return Response({'order_id': order.id})
+        print(order.payment_type)
+
+        return Response({'orderId': order.id})
 
 
 class PaymentAPIView(APIView):
-    def get(self, request, id):
+    def get(self, request, *args, **kwargs):
         order = Order.objects.get(pk=id)
-        return JsonResponse({'order_id': order.id})
+        return Response(status=status.HTTP_200_OK)
+        # return JsonResponse({'order_id': order.id})
 
-    def post(self, request, id):
-
-        order_id = id
+    def post(self, request, *args, **kwargs):
+        order_id = kwargs.get('id')
         payment_data = request.data
+        order = Order.objects.get(pk=order_id)
+        order.status = 'delivery'
+        order.save()
         try:
             return Response(status=status.HTTP_200_OK)
         except Exception as e:
@@ -353,10 +345,6 @@ class PaymentAPIView(APIView):
 
 
 class LoginApiView(APIView):
-    def get(self, request, *args, **kwargs):
-        print('V request legit eto:', request)
-        return redirect('/sign-in/')
-
     def post(self, request, *args, **kwargs):
         data = json.loads(list(request.data.keys())[0])
         user = authenticate(request, username=data.get('username'), password=data.get('password'))
@@ -390,3 +378,33 @@ class RegisterApiView(APIView):
             return Response({'status': 'success', 'message': 'User registered successfully'}, status=status.HTTP_201_CREATED)
         except Exception as e:
             return Response({'status': 'failure', 'error': 'Internal Server Error', 'details': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+class CustomPageNumberPagination(PageNumberPagination):
+    page_size = 6
+
+
+class SalesAPIView(APIView):
+    serializer_class = SalesItemSerializer
+    pagination_class = CustomPageNumberPagination
+
+    def get(self, request):
+        orders = Order.objects.order_by('-created_at')
+        unique_items = set()
+
+        for order in orders:
+            for basket_item in order.basket_set.all():
+                item = basket_item.item
+                unique_items.add(item)
+
+        unique_items = set(unique_items)
+
+        serialized_items = [self.serializer_class(item).data for item in unique_items]
+
+        data = {
+            'items': serialized_items,
+            "currentPage": request.query_params.get('currentPage', 1),
+            "lastPage": len(serialized_items) // 6 + (len(serialized_items) % 6 > 0),
+        }
+
+        return Response(data, status=status.HTTP_200_OK)

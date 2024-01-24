@@ -1,6 +1,6 @@
 from django.core.validators import MaxValueValidator
 from django.db import models
-from django.db.models import Avg, Sum, ExpressionWrapper, F, DecimalField
+from django.db.models import Avg, Sum, F
 from myauth.models import CustomUser
 
 
@@ -99,6 +99,7 @@ class Specification(models.Model):
     def __str__(self):
         return f"{self.name}: {self.value}"
 
+
 class ItemImage(models.Model):
     item = models.ForeignKey(Item, on_delete=models.CASCADE, related_name='images')
     src = models.ImageField(upload_to=item_image_directory_path)
@@ -112,7 +113,8 @@ class Order(models.Model):
     status_choice = [
         ('active', 'active'),
         ('pending', 'pending'),
-        ('in process', 'in process'),
+        ('delivery', 'delivery'),
+        ('payment', 'payment'),
         ('archived', 'Archived'),
     ]
     customer = models.ForeignKey(CustomUser, on_delete=models.PROTECT)
