@@ -294,6 +294,7 @@ class OrderAPIView(APIView):
             order.save()
             response_data = {'orderId': order.id}
             return Response(response_data, status=status.HTTP_200_OK)
+        return Response(status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 class OrderDetailAPIView(RetrieveAPIView):
